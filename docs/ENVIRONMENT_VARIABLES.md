@@ -36,6 +36,8 @@ Environment variables are loaded from `.env.local` at startup. Missing required 
 |----------|------|-------------|---------|
 | `NEXT_PUBLIC_SEGMENT_WRITE_KEY` | string | Segment analytics write key (optional for analytics) | `YOUR_KEY` |
 
+Analytics is not requested until the visitor's first interaction, then loads with Next.js `lazyOnload`. App fonts use `next/font` with `display: 'swap'`.
+
 ### Privy Authentication
 
 | Variable | Type | Description | Example |
