@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { MotionConfig } from 'framer-motion';
-import Script from 'next/script';
 import { Toaster } from 'sonner';
 import './globals.css';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import AccessibilityAnnouncer from '@/components/AccessibilityAnnouncer';
+import AnalyticsScript from '@/components/AnalyticsScript';
 import EnvCheck from '@/components/EnvCheck';
 import SWRegister from '@/components/SWRegister';
 import { ThemeScript } from '@/components/ThemeScript';
@@ -69,12 +69,7 @@ export default function RootLayout({
               </a>
               <Toaster closeButton position="bottom-right" />
               {children}
-              {/* Analytics script loaded after user interaction to reduce main thread blocking */}
-              <Script
-                id="analytics-script"
-                src="https://www.google-analytics.com/analytics.js"
-                strategy="lazyOnload"
-              />
+              <AnalyticsScript />
             </Provider>
           </PrivyAuthProvider>
         </MotionConfig>
