@@ -1,11 +1,49 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, LoaderCircle } from 'lucide-react';
 import Slider from 'react-slick';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useSectionData } from '@/hooks/useSectionData';
 import { getCarouselSettings } from './carouselSettings';
+
+const INFINITE_SCROLL_BATCH_SIZE = 8;
+const VISIBLE_COUNTS_STORAGE_KEY = 'audioblocks_explore_visible_counts';
+
+function getSavedVisibleCount(key: string): number {
+  if (typeof window === 'undefined') return INFINITE_SCROLL_BATCH_SIZE;
+
+  try {
+    const savedCounts = JSON.parse(
+      window.sessionStorage.getItem(VISIBLE_COUNTS_STORAGE_KEY) ?? '{}'
+    ) as Record<string, unknown>;
+    const savedCount = savedCounts[key];
+    return typeof savedCount === 'number' &&
+      Number.isSafeInteger(savedCount) &&
+      savedCount >= INFINITE_SCROLL_BATCH_SIZE
+      ? savedCount
+      : INFINITE_SCROLL_BATCH_SIZE;
+  } catch {
+    return INFINITE_SCROLL_BATCH_SIZE;
+  }
+}
+
+function saveVisibleCount(key: string, count: number) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const savedCounts = JSON.parse(
+      window.sessionStorage.getItem(VISIBLE_COUNTS_STORAGE_KEY) ?? '{}'
+    ) as Record<string, unknown>;
+    window.sessionStorage.setItem(
+      VISIBLE_COUNTS_STORAGE_KEY,
+      JSON.stringify({ ...savedCounts, [key]: count })
+    );
+  } catch {
+    // Session storage may be unavailable or full.
+  }
+}
 
 const DEFAULT_SKELETON = (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4">
@@ -27,12 +65,13 @@ interface SectionWrapperProps<T> {
   queryKey: readonly string[];
   fetchFn: () => Promise<T[]>;
   renderEmpty: (searchQuery?: string) => React.ReactNode;
-  renderItem: (item: T, index: number) => React.ReactNode;
+  renderItem: (item: T) => React.ReactNode;
   searchQuery?: string;
   activeGenre?: string;
   searchFields?: (item: T) => string[];
   genreField?: (item: T) => string;
   carousel?: boolean;
+  infiniteScroll?: boolean;
   carouselSettings?: Record<string, unknown>;
   skeleton?: React.ReactNode;
 }
@@ -49,10 +88,15 @@ export function SectionWrapper<T extends { id: string }>({
   searchFields,
   genreField,
   carousel = true,
+  infiniteScroll = false,
   carouselSettings,
   skeleton,
 }: SectionWrapperProps<T>) {
-  const { data, isLoading, isError, isEmpty } = useSectionData<T>({ queryKey, fetchFn });
+  const { data, isLoading, isError, isEmpty, refetch } = useSectionData<T>({ queryKey, fetchFn });
+  const visibleCountKey = JSON.stringify(queryKey);
+  const [visibleCount, setVisibleCount] = useState(INFINITE_SCROLL_BATCH_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadingTimerRef = useRef<number | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -68,6 +112,50 @@ export function SectionWrapper<T extends { id: string }>({
       }),
     [data, searchQuery, activeGenre, searchFields, genreField]
   );
+
+  useEffect(() => {
+    if (!infiniteScroll) return;
+    setVisibleCount(getSavedVisibleCount(visibleCountKey));
+  }, [infiniteScroll, visibleCountKey]);
+
+  useEffect(() => {
+    if (!infiniteScroll) return;
+    saveVisibleCount(visibleCountKey, visibleCount);
+  }, [infiniteScroll, visibleCountKey, visibleCount]);
+
+  useEffect(
+    () => () => {
+      if (loadingTimerRef.current !== null) {
+        window.clearTimeout(loadingTimerRef.current);
+      }
+    },
+    []
+  );
+
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || visibleCount >= filtered.length) return;
+
+    setIsLoadingMore(true);
+    return new Promise<void>((resolve) => {
+      loadingTimerRef.current = window.setTimeout(() => {
+        setVisibleCount((current) =>
+          Math.min(current + INFINITE_SCROLL_BATCH_SIZE, filtered.length)
+        );
+        setIsLoadingMore(false);
+        loadingTimerRef.current = null;
+        resolve();
+      }, 200);
+    });
+  }, [filtered.length, isLoadingMore, visibleCount]);
+
+  const { sentinelRef } = useInfiniteScroll({
+    onLoadMore: loadMore,
+    hasMore: visibleCount < filtered.length,
+    isLoading: isLoadingMore,
+    enabled: infiniteScroll && !isLoading && !isError,
+  });
+
+  const visibleItems = infiniteScroll ? filtered.slice(0, visibleCount) : filtered;
 
   return (
     <section>
@@ -89,9 +177,18 @@ export function SectionWrapper<T extends { id: string }>({
       {isLoading ? (
         (skeleton ?? DEFAULT_SKELETON)
       ) : isError ? (
-        <p className="py-8 text-center text-sm text-red-400">
-          Failed to load {title.toLowerCase()}. Please try again later.
-        </p>
+        <div className="py-8 text-center">
+          <p className="text-sm text-red-400">Failed to load {title.toLowerCase()}.</p>
+          {infiniteScroll && (
+            <button
+              className="mt-3 rounded-full border border-border-dark px-4 py-2 text-sm text-white hover:bg-surface-hover"
+              type="button"
+              onClick={() => void refetch()}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       ) : isEmpty ? (
         renderEmpty(searchQuery)
       ) : carousel ? (
@@ -101,20 +198,35 @@ export function SectionWrapper<T extends { id: string }>({
             aria-label={`${title} carousel`}
             aria-roledescription="carousel"
           >
-            {filtered.map((item, index) => (
+            {visibleItems.map((item) => (
               <div key={item.id} className="px-4">
-                {renderItem(item, index)}
+                {renderItem(item)}
               </div>
             ))}
           </Slider>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4">
-          {filtered.map((item, index) => (
+          {visibleItems.map((item) => (
             <div key={item.id} className="px-4">
-              {renderItem(item, index)}
+              {renderItem(item)}
             </div>
           ))}
+        </div>
+      )}
+
+      {infiniteScroll && !isLoading && !isError && !isEmpty && (
+        <div aria-live="polite" className="flex min-h-12 flex-col items-center justify-center py-3">
+          {isLoadingMore ? (
+            <span className="flex items-center gap-2 text-sm text-on-muted">
+              <LoaderCircle aria-hidden="true" className="animate-spin" size={18} />
+              Loading more {title.toLowerCase()}...
+            </span>
+          ) : visibleCount < filtered.length ? (
+            <div ref={sentinelRef} aria-hidden="true" className="h-4 w-full" />
+          ) : (
+            <p className="text-sm text-on-muted">You&apos;ve reached the end.</p>
+          )}
         </div>
       )}
     </section>

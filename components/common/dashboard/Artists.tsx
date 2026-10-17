@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
 import { SectionWrapper } from '@/components/common/dashboard/SectionWrapper';
 import { QUERY_KEYS } from '@/lib/constants';
 import { getExploreArtists } from '@/lib/exploreService';
@@ -14,7 +12,9 @@ type Props = {
 const Artists = ({ searchQuery = '', activeGenre = 'All' }: Props) => {
   return (
     <SectionWrapper
+      infiniteScroll
       activeGenre={activeGenre}
+      carousel={false}
       fetchFn={getExploreArtists}
       genreField={(item) => item.description}
       queryKey={QUERY_KEYS.EXPLORE_ARTISTS}
@@ -23,7 +23,7 @@ const Artists = ({ searchQuery = '', activeGenre = 'All' }: Props) => {
           {query ? 'No artists match your search.' : 'No artists available yet.'}
         </p>
       )}
-      renderItem={(item, index) => (
+      renderItem={(item) => (
         <>
           <div className="w-full h-40 rounded-lg overflow-hidden mx-auto">
             <img
