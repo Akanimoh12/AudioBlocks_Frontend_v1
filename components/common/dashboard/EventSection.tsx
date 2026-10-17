@@ -5,6 +5,7 @@ import { ArrowUpRight, Star } from 'lucide-react';
 import Slider from 'react-slick';
 import { NextArrow, PrevArrow } from '@/components/common/collective/Members/navigation';
 import { useGetEvents } from '@/hooks/useExplore';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
 const eventsSettings = {
   dots: false,
@@ -33,6 +34,9 @@ const EventSkeleton = () => (
 
 const EventSection = () => {
   const { data: events, isLoading, isError } = useGetEvents();
+
+  // #637: hide the section while /api/events has no backend support.
+  if (!isFeatureEnabled('events')) return null;
 
   return (
     <div>

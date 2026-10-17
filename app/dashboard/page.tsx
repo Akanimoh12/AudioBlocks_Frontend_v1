@@ -14,6 +14,7 @@ import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicat
 import { ProfileCompletion } from '@/components/dashboard/ProfileCompletion';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
 const genreFilters = ['All', 'Pop', 'Contemporary', 'Rock', 'Afro', 'Jazz'];
 
@@ -22,6 +23,9 @@ const ExplorePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeGenre, setActiveGenre] = useState('All');
   const queryClient = useQueryClient();
+  // #637: sections whose backend endpoints are not live yet.
+  const eventsEnabled = isFeatureEnabled('events');
+  const merchEnabled = isFeatureEnabled('merch');
   const pullToRefresh = usePullToRefresh({
     onRefresh: () => queryClient.refetchQueries({ type: 'active' }),
   });
@@ -83,17 +87,21 @@ const ExplorePage = () => {
         <Collections activeGenre={activeGenre} searchQuery={searchQuery} />
       </DataErrorBoundary>
 
-      <DataErrorBoundary name="Events">
-        <EventSection />
-      </DataErrorBoundary>
+      {eventsEnabled && (
+        <DataErrorBoundary name="Events">
+          <EventSection />
+        </DataErrorBoundary>
+      )}
 
       <DataErrorBoundary name="Artists">
         <Artists activeGenre={activeGenre} searchQuery={searchQuery} />
       </DataErrorBoundary>
 
-      <DataErrorBoundary name="Merch">
-        <Merch />
-      </DataErrorBoundary>
+      {merchEnabled && (
+        <DataErrorBoundary name="Merch">
+          <Merch />
+        </DataErrorBoundary>
+      )}
     </div>
   );
 };

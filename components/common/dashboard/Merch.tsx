@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import Slider from 'react-slick';
 import { useGetMerch } from '@/hooks/useExplore';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 import { NextArrow, PrevArrow } from './landing/NavigationArrow';
 
 const collectiveSettings = {
@@ -38,6 +39,9 @@ const MerchSkeleton = () => (
 
 const Merch = () => {
   const { data: items, isLoading, isError } = useGetMerch();
+
+  // #637: hide the section while /api/merch has no backend support.
+  if (!isFeatureEnabled('merch')) return null;
 
   return (
     <section>
