@@ -1,37 +1,46 @@
 'use client';
 
-import { useState } from 'react';
-import { GripVertical, Play, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { GripVertical, Play, Trash2, Loader2 } from 'lucide-react';
 import { usePlayback } from '@/context/PlaybackContext';
 
-const sampleTracks = [
-  {
-    id: 'pl-1',
-    title: 'Relax and Unwind',
-    artist: 'Rozé',
-    cover: '/AFRO.jpg',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-  },
-  {
-    id: 'pl-2',
-    title: 'Vibe Mix',
-    artist: 'Yemi Sax',
-    cover: '/AFRO.jpg',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-  },
-  {
-    id: 'pl-3',
-    title: 'Cool Session',
-    artist: 'Dunsin',
-    cover: '/AFRO.jpg',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-  },
-];
+interface Track {
+  id: string | number;
+  title: string;
+  artist?: string;
+  cover?: string;
+  url?: string;
+  coverUrl?: string;
+}
 
 const Playlist = () => {
   const { playTrack, currentIndex, playlist, isPlaying } = usePlayback();
-  const [tracks, setTracks] = useState(sampleTracks);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch playlists from backend (Issue #617)
+  useEffect(() => {
+    const fetchPlaylists = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/playlists');
+        if (!response.ok) throw new Error('Failed to fetch playlists');
+        const data = await response.json();
+        setTracks(data.tracks || []);
+      } catch (err) {
+        // Fallback to empty playlist if backend unavailable
+        console.error('Error fetching playlists:', err);
+        setTracks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlaylists();
+  }, []);
 
   const handleDrop = (targetTrackId: string) => {
     if (!draggedTrackId || draggedTrackId === targetTrackId) {
@@ -71,7 +80,16 @@ const Playlist = () => {
         </div>
       </div>
 
-      {tracks.length === 0 ? (
+      {loading ? (
+        <div className="rounded-lg border border-border-dark p-8 text-center text-on-muted flex items-center justify-center gap-3">
+          <Loader2 size={20} className="animate-spin" />
+          Loading playlist...
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-red-400/50 bg-red-400/10 p-8 text-center text-red-400">
+          Failed to load playlist. Please try again.
+        </div>
+      ) : tracks.length === 0 ? (
         <div className="rounded-lg border border-border-dark p-8 text-center text-on-muted">
           Your playlist is empty.
         </div>

@@ -33,6 +33,15 @@ export const metadata: Metadata = {
   title: 'AudioBlocks — Stream, Earn & Collect Music NFTs',
   description:
     'AudioBlocks is a Web3 music platform where listeners stream ad-free music and earn rewards while artists upload tracks, sell NFTs, and get paid fairly.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'AudioBlocks',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

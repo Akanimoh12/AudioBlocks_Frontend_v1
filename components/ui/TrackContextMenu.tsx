@@ -21,6 +21,7 @@ export interface TrackContextMenuProps {
   onSaveToCollection?: (track: Track) => void;
   onShare?: (track: Track) => void;
   onViewArtist?: (track: Track) => void;
+  onAddToPlaylist?: (track: Track) => void;
   className?: string;
   disabled?: boolean;
 }
@@ -33,6 +34,7 @@ export function TrackContextMenu({
   onSaveToCollection,
   onShare,
   onViewArtist,
+  onAddToPlaylist,
   className = '',
   disabled = false,
 }: TrackContextMenuProps) {
@@ -58,6 +60,12 @@ export function TrackContextMenu({
       label: 'Add to Queue',
       icon: <ListPlus size={16} />,
       action: () => onAddToQueue?.(track),
+    },
+    {
+      id: 'add-playlist',
+      label: 'Add to Playlist',
+      icon: <ListPlus size={16} />,
+      action: () => onAddToPlaylist?.(track),
     },
     {
       id: 'save-collection',
